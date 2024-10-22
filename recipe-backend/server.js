@@ -19,6 +19,28 @@ const PORT = process.env.PORT || 5000;
 app.use(cors()); // Enables CORS to allow frontend applications to communicate with the backend
 app.use(express.json()); // Parses incoming JSON requests, enabling us to handle request bodies
 
+// Authentication Middleware
+const authenticateToken = (req, res, next) => {
+  // Get token from header
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'Access Denied: No token provided' });
+  }
+
+  try {
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded.user; // Attach user info to request object
+    next(); // Proceed to the next middleware or route
+  } catch (err) {
+    console.error('JWT Verification Error:', err);
+    res.status(403).json({ message: 'Invalid or expired token' });
+  }
+};
+
+
 // Define a basic route at the root ('/')
 app.get('/', (req, res) => {
   res.send('Hello from Recipe Backend!'); // Sends a response to the client with a simple message
@@ -35,7 +57,6 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
-// Register Route
 // Register Route
 app.post(
   '/register',
@@ -74,6 +95,73 @@ app.post(
     }
   }
 );
+
+// Login Route
+app.post(
+  '/login',
+  body('email').isEmail().withMessage('Please enter a valid email'),
+  body('password').notEmpty().withMessage('Password is required'),
+  async (req, res) => {
+    // Validate the request
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email, password } = req.body;
+
+    try {
+      // Check if the user exists
+      const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+      if (rows.length === 0) {
+        return res.status(400).json({ message: 'Invalid credentials' });
+      }
+
+      const user = rows[0];
+
+      // Compare provided password with stored hashed password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Invalid credentials' });
+      }
+
+      // Generate a JWT token
+      const payload = {
+        user: {
+          id: user.id,
+          email: user.email
+        }
+      };
+
+      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+      res.json({ token });
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Server error');
+    }
+  }
+);
+
+// Protected Profile Route
+app.get('/profile', authenticateToken, async (req, res) => {
+  try {
+    // Use the user information from the token
+    const userId = req.user.id;
+
+    // Query user information from the database (excluding password for safety)
+    const [rows] = await db.query('SELECT id, email, created_at FROM users WHERE id = ?', [userId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ user: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
 
 
 // Start the server and listen on the defined port
