@@ -163,6 +163,48 @@ app.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// Save Favorite Recipe Route
+app.post('/save-recipe', authenticateToken, async (req, res) => {
+  const { recipe_name, recipe_details } = req.body;
+
+  // Validate the request body
+  if (!recipe_name || !recipe_details) {
+    return res.status(400).json({ message: 'Recipe name and details are required' });
+  }
+
+  try {
+    const userId = req.user.id;
+
+    // Insert the recipe into the favorite_recipes table
+    await db.query(
+      'INSERT INTO favorite_recipes (user_id, recipe_name, recipe_details) VALUES (?, ?, ?)',
+      [userId, recipe_name, recipe_details]
+    );
+
+    res.status(201).json({ message: 'Recipe saved successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// Get All Saved Recipes Route
+app.get('/saved-recipes', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Retrieve all saved recipes for the authenticated user
+    const [recipes] = await db.query('SELECT * FROM favorite_recipes WHERE user_id = ?', [userId]);
+
+    res.json({ savedRecipes: recipes });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+
+
 
 // Start the server and listen on the defined port
 app.listen(PORT, () => {
