@@ -8,9 +8,9 @@ const Register = () => {
 
   const handleRegister = async (e) => {
     e.preventDefault();
-
+  
     try {
-      const response = await axios.post('http://localhost:5000/register', {
+      await axios.post('http://localhost:5000/register', {
         email,
         password,
       });
@@ -18,7 +18,7 @@ const Register = () => {
     } catch (error) {
       setMessage('Registration failed. ' + (error.response?.data?.message || 'Please try again.'));
     }
-  };
+  };  
 
   return (
     <div>
