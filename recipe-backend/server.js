@@ -206,7 +206,6 @@ app.get('/saved-recipes', authenticateToken, async (req, res) => {
 });
 
 // Generate Recipe Using OpenAI API
-// Improved error handling
 app.post('/generate-recipe', async (req, res) => {
   const { tags, ingredients } = req.body;
 
@@ -215,6 +214,8 @@ app.post('/generate-recipe', async (req, res) => {
   }
 
   try {
+    const randomPromptAddon = Math.random(); // Add slight variability
+
     // Craft the prompt to be sent to OpenAI API
     const messages = [
       {
@@ -227,7 +228,7 @@ app.post('/generate-recipe', async (req, res) => {
           Tags: ${tags.join(', ')}
           Ingredients: ${ingredients.join(', ')}
 
-          Please provide a detailed recipe with no steps left out in the following JSON format:
+          Please provide a recipe in the following JSON format:
 
           {
             "name": "Dish Name",
@@ -237,10 +238,12 @@ app.post('/generate-recipe', async (req, res) => {
               "Quantity and description of ingredient 2"
             ],
             "instructions": [
-              "description of step 1",
-              "description of step 2"
+              "description of the step 1",
+              "description of the step 2"
             ]
           }
+
+          Add-on: ${randomPromptAddon}
 
           Make sure to strictly follow the format, without any extra text or comments.
         `,
@@ -251,17 +254,19 @@ app.post('/generate-recipe', async (req, res) => {
     const completion = await client.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: messages,
-      max_tokens: 4096,
+      max_tokens: 1000,
     });
 
     const recipe = completion.choices[0].message.content;
 
     res.json({ recipe });
   } catch (err) {
-    console.error('Error generating recipe:', err.response ? err.response.data : err.message);
+    console.error('Error generating recipe:', err);
     res.status(500).json({ message: 'Failed to generate recipe' });
   }
 });
+
+
 
 
 // Start the server and listen on the defined port
