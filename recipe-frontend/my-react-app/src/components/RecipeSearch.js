@@ -4,27 +4,44 @@ import axios from 'axios';
 const RecipeSearch = () => {
   const [ingredients, setIngredients] = useState('');
   const [tags, setTags] = useState('');
-  const [recipe, setRecipe] = useState(null);
+  const [recipes, setRecipes] = useState([]);
 
-  // Handles form submission
-  const handleSubmit = async (e) => {
+  // Function to handle form submission
+  const handleSearch = async (e) => {
     e.preventDefault();
     try {
-      // Send the ingredients and tags to the backend
       const response = await axios.post('http://localhost:5000/generate-recipe', {
         ingredients: ingredients.split(','),
         tags: tags.split(',')
       });
-      setRecipe(response.data.recipe); // Set the recipe received from the backend
+      setRecipes([JSON.parse(response.data.recipe)]); // Update to set a parsed JSON object as an array
     } catch (error) {
-      console.error('Error fetching recipe:', error);
+      console.error('Error fetching recipes:', error);
+    }
+  };
+  
+
+  // Function to save a recipe
+  const saveRecipe = async (recipe) => {
+    try {
+      const response = await axios.post('http://localhost:5000/save-recipe', recipe, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}` // JWT token for authorization
+        }
+      });
+      if (response.status === 201) {
+        alert('Recipe saved successfully!');
+      }
+    } catch (error) {
+      console.error('Error saving recipe:', error);
+      alert('Failed to save recipe. Please try again.');
     }
   };
 
   return (
-    <div className="recipe-search-container">
-      <h2>Find a Recipe</h2>
-      <form onSubmit={handleSubmit}>
+    <div>
+      <h1>Find a Recipe</h1>
+      <form onSubmit={handleSearch}>
         <div>
           <label>Ingredients (comma separated):</label>
           <input
@@ -46,15 +63,33 @@ const RecipeSearch = () => {
         <button type="submit">Get Recipe</button>
       </form>
 
-      {recipe && (
-        <div className="recipe-result">
-          <h3>{recipe.title}</h3>
-          <p><strong>Ingredients:</strong></p>
-          <pre>{recipe.ingredients}</pre>
-          <p><strong>Instructions:</strong></p>
-          <pre>{recipe.instructions}</pre>
-        </div>
+      <h2>Recipes:</h2>
+      <ul>
+      {recipes.length > 0 ? (
+        recipes.map((recipe, index) => (
+          <li key={index}>
+            <h3>{recipe.name}</h3>
+            <p>{recipe.description}</p>
+            <h4>Ingredients:</h4>
+            <ul>
+              {recipe.ingredients.map((ingredient, i) => (
+                <li key={i}>{ingredient}</li>
+              ))}
+            </ul>
+            <h4>Instructions:</h4>
+            <ol>
+              {recipe.instructions.map((instruction, i) => (
+                <li key={i}>{instruction}</li>
+              ))}
+            </ol>
+            {/* Add Save Recipe Button */}
+            <button onClick={() => saveRecipe(recipe)}>Save Recipe</button>
+          </li>
+        ))
+      ) : (
+        <p>No recipes found</p>
       )}
+      </ul>
     </div>
   );
 };
